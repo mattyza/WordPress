@@ -1044,9 +1044,10 @@ class Plugin_Upgrader extends WP_Upgrader {
 	 * @global WP_Filesystem_Base $wp_filesystem Subclass
 	 *
 	 * @param string $source The path to the downloaded package source.
+	 * @param string $environment The environment in which the check is running (default, in-plugin-installer, etc).
 	 * @return string|WP_Error The source as passed, or a {@see WP_Error} object if no plugins were found.
 	 */
-	public function check_package($source) {
+	public function check_package($source, $environment = 'default') {
 		global $wp_filesystem;
 
 		if ( is_wp_error($source) )
@@ -1055,6 +1056,15 @@ class Plugin_Upgrader extends WP_Upgrader {
 		$working_directory = str_replace( $wp_filesystem->wp_content_dir(), trailingslashit(WP_CONTENT_DIR), $source);
 		if ( ! is_dir($working_directory) ) // Sanity check, if the above fails, let's not prevent installation.
 			return $source;
+
+		if ( 'default' == $environment ) {
+			// Check if we've got a theme here
+			$theme_check = Theme_Upgrader::check_package( $source, 'in-theme-installer' );
+
+			if ( ! is_a( $theme_check, 'WP_Error' ) ) {
+				return new WP_Error( 'incompatible_archive_plugin_is_theme', $this->strings['incompatible_archive'], __( 'It looks like you\'re wanting to install a theme. Visit the theme installer to do this.' ) );
+			}
+		}
 
 		// Check the folder contains at least 1 valid plugin.
 		$plugins_found = false;
@@ -1578,9 +1588,10 @@ class Theme_Upgrader extends WP_Upgrader {
 	 * @global WP_Filesystem_Base $wp_filesystem Subclass
 	 *
 	 * @param string $source The full path to the package source.
+	 * @param string $environment The environment in which the check is running (default, in-theme-installer, etc).
 	 * @return string|WP_Error The source or a WP_Error.
 	 */
-	public function check_package( $source ) {
+	public function check_package( $source, $environment = 'default' ) {
 		global $wp_filesystem;
 
 		if ( is_wp_error($source) )
@@ -1590,6 +1601,15 @@ class Theme_Upgrader extends WP_Upgrader {
 		$working_directory = str_replace( $wp_filesystem->wp_content_dir(), trailingslashit(WP_CONTENT_DIR), $source);
 		if ( ! is_dir($working_directory) ) // Sanity check, if the above fails, let's not prevent installation.
 			return $source;
+
+		if ( 'default' == $environment ) {
+			// Check if we've got a plugin here
+			$plugin_check = Plugin_Upgrader::check_package( $source, 'in-theme-installer' );
+
+			if ( ! is_a( $plugin_check, 'WP_Error' ) ) {
+				return new WP_Error( 'incompatible_archive_theme_is_plugin', $this->strings['incompatible_archive'], __( 'It looks like you\'re wanting to install a plugin. Visit the plugin installer to do this.' ) );
+			}
+		}
 
 		// A proper archive should have a style.css file in the single subdirectory
 		if ( ! file_exists( $working_directory . 'style.css' ) )
